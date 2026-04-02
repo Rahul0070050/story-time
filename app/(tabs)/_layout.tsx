@@ -1,10 +1,10 @@
 // app/(tabs)/_layout.tsx
 // Bottom tab navigator with a premium dark theme using Ionicons.
 
-import React from 'react';
-import { Tabs } from 'expo-router';
-import { Platform, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { Platform, StyleSheet, View } from 'react-native';
 import { COLORS } from '../../src/constants/theme';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;

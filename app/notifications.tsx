@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '../src/constants/theme';
 import { useLocalLibrary } from '../src/hooks/useLocalLibrary';
 import { useSAFDiscovery } from '../src/hooks/useSAFDiscovery';
@@ -65,13 +65,16 @@ export default function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
       <Stack.Screen options={{ 
         title: 'Notifications',
+        headerShown: true, // Use built-in header for smoother back navigation
         headerStyle: { backgroundColor: COLORS.bg },
         headerTintColor: '#fff',
+        headerShadowVisible: false, // Clean minimalist look
         headerLeft: () => (
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="close" size={24} color="#fff" />
+          <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 8 }}>
+            <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
         ),
       }} />
@@ -117,7 +120,12 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.bg,
+    // Ensure no transparency during transition
+    opacity: 1, 
+  },
   list: { padding: 16 },
   notificationItem: {
     flexDirection: 'row',

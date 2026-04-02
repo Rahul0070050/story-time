@@ -53,15 +53,21 @@ export default function LibraryScreen() {
     }
   }, [discover, scanOld, requestPermission, addBooks, hasFolderAccess, isAvailable]);
 
+  const hasScannedRef = React.useRef(false);
+
   // Auto-scan on mount — fully automatic discovery
   React.useEffect(() => {
+    if (hasScannedRef.current) return;
+
     const triggerInitialScan = async () => {
       if (hasFolderAccess) {
         // We already have a folder, just sync it
         handleScan(false);
+        hasScannedRef.current = true;
       } else if (permissionStatus === 'granted' && isAvailable) {
         // Permission already granted, just scan device
         handleScan(false);
+        hasScannedRef.current = true;
       }
     };
 
@@ -73,6 +79,7 @@ export default function LibraryScreen() {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
       <FlatList
         data={allBooks}
+        style={{ backgroundColor: COLORS.bg }}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
           <BookCard

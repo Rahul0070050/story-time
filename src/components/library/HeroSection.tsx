@@ -48,14 +48,14 @@ function NotificationIcon({
   );
 }
 
-export function HeroSection({
+export const HeroSection = React.memo(({
   bookCount,
   scanning,
   permissionStatus,
   hasFolderAccess,
   onScan,
   isAvailable = true,
-}: HeroSectionProps) {
+}: HeroSectionProps) => {
   return (
     <View>
       <LinearGradient colors={GRADIENTS.hero} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
@@ -77,7 +77,7 @@ export function HeroSection({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   hero: {
