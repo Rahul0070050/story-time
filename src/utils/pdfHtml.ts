@@ -262,7 +262,7 @@ function viewerScript(pdfSourceExpr: string): string {
         }
     }, { passive: true });
 
-    /* Initial Load */
+    /* Initial Load (Updated) */
     pdfjsLib.getDocument(${pdfSourceExpr}).promise.then(function(pdf) {
         pdfDoc = pdf;
         document.getElementById('status').style.display = 'none';

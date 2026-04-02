@@ -9,9 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rahulor.storytime"
     },
     "android": {
+      "package": "com.rahulor.storytime",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,11 +45,26 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "react-native-permissions",
+        {
+          "androidPermissions": [
+            "android.permission.READ_EXTERNAL_STORAGE",
+            "android.permission.WRITE_EXTERNAL_STORAGE"
+          ]
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "97521ed6-d743-459c-a07c-4ea61d21cfe4"
+      }
     }
   }
 }

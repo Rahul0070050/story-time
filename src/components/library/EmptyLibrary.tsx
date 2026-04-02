@@ -8,12 +8,12 @@ import { COLORS } from '../../constants/theme';
 export function EmptyLibrary() {
   return (
     <View style={styles.container}>
-      <Text style={styles.icon}>📭</Text>
-      <Text style={styles.title}>Library is empty</Text>
+      <Text style={styles.icon}>📚</Text>
+      <Text style={styles.title}>No stories found yet</Text>
       <Text style={styles.subtitle}>
         {Platform.OS === 'android'
-          ? 'Tap "Scan Device for PDFs" to find PDFs automatically, or pick files manually.'
-          : 'Tap "Pick PDFs Manually" to add your first book.'}
+          ? 'Tap "Select Folder" above to choose where your PDFs are stored. We\'ll automatically find them for you!'
+          : 'Connecting to your library... Please wait while we find your stories.'}
       </Text>
     </View>
   );

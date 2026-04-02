@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React from 'react';
 import { FlatList, StatusBar, StyleSheet, View } from 'react-native';
 
@@ -8,18 +8,27 @@ import { HeroSection } from '../../src/components/library/HeroSection';
 import { COLORS } from '../../src/constants/theme';
 import { useDeviceScanner } from '../../src/hooks/useDeviceScanner';
 import { useLocalLibrary } from '../../src/hooks/useLocalLibrary';
-import { usePdfPicker } from '../../src/hooks/usePdfPicker';
+import { useSAFDiscovery } from '../../src/hooks/useSAFDiscovery';
 import { useStoragePermission } from '../../src/hooks/useStoragePermission';
-import { SAMPLE_STORIES, Story } from '../../src/utils/pdfManager';
+import { Story } from '../../src/utils/pdfManager';
 
 export default function LibraryScreen() {
   const router = useRouter();
   const { status: permissionStatus, request: requestPermission } = useStoragePermission();
-  const { scanning, scan } = useDeviceScanner();
-  const { pick } = usePdfPicker();
-  const { localBooks, addBooks, removeBook } = useLocalLibrary();
+  const { scanning: scanningOld, scan: scanOld, isAvailable } = useDeviceScanner();
+  const { discovering, discover, hasFolderAccess, refresh: refreshSAF } = useSAFDiscovery();
+  const { localBooks, addBooks, removeBook, refresh: refreshLibrary } = useLocalLibrary();
 
-  const allBooks = [...SAMPLE_STORIES, ...localBooks];
+  const allBooks = [...localBooks];
+  const scanning = scanningOld || discovering;
+
+  // Sync library when screen is focused (e.g., returning from notifications)
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshSAF();
+      refreshLibrary();
+    }, [refreshSAF, refreshLibrary])
+  );
 
   const openBook = (item: Story) => {
     router.push({
@@ -32,15 +41,32 @@ export default function LibraryScreen() {
     });
   };
 
-  const handleScan = async () => {
-    const found = await scan(requestPermission);
-    addBooks(found);
-  };
+  const handleScan = React.useCallback(async (forcePrompt = false) => {
+    // Try SAF first (Modern Android)
+    const found = await discover(forcePrompt);
+    if (found.length > 0) {
+      addBooks(found);
+    } else if (!hasFolderAccess && !forcePrompt && isAvailable) {
+      // Falling back to standard scanner if no SAF folder linked and available
+      const standardFound = await scanOld(requestPermission);
+      addBooks(standardFound);
+    }
+  }, [discover, scanOld, requestPermission, addBooks, hasFolderAccess, isAvailable]);
 
-  const handlePick = async () => {
-    const picked = await pick();
-    addBooks(picked);
-  };
+  // Auto-scan on mount — fully automatic discovery
+  React.useEffect(() => {
+    const triggerInitialScan = async () => {
+      if (hasFolderAccess) {
+        // We already have a folder, just sync it
+        handleScan(false);
+      } else if (permissionStatus === 'granted' && isAvailable) {
+        // Permission already granted, just scan device
+        handleScan(false);
+      }
+    };
+
+    triggerInitialScan();
+  }, [hasFolderAccess, permissionStatus, handleScan, isAvailable]);
 
   return (
     <View style={styles.container}>
@@ -57,13 +83,14 @@ export default function LibraryScreen() {
           />
         )}
         ListHeaderComponent={
-          <HeroSection
-            bookCount={allBooks.length}
-            scanning={scanning}
-            permissionStatus={permissionStatus}
-            onScan={handleScan}
-            onPick={handlePick}
-          />
+      <HeroSection
+        bookCount={allBooks.length}
+        scanning={scanning}
+        permissionStatus={permissionStatus}
+        hasFolderAccess={hasFolderAccess}
+        onScan={handleScan}
+        isAvailable={isAvailable}
+      />
         }
         ListEmptyComponent={<EmptyLibrary />}
         showsVerticalScrollIndicator={false}

@@ -1,20 +1,18 @@
 // app/reader/[id].tsx
 // PDF reader screen — thin orchestrator.
 
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React from 'react';
+import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-import { SAMPLE_STORIES } from '../../src/utils/pdfManager';
-import { COLORS } from '../../src/constants/theme';
-import { buildLocalPdfHtml } from '../../src/utils/pdfHtml';
-import { useReaderMessages } from '../../src/hooks/useReaderMessages';
-import { useLocalPdfFile } from '../../src/hooks/useLocalPdfFile';
-import { ReaderHeader } from '../../src/components/reader/ReaderHeader';
-import { ProgressBar } from '../../src/components/reader/ProgressBar';
 import { LoadingOverlay } from '../../src/components/reader/LoadingOverlay';
+import { ProgressBar } from '../../src/components/reader/ProgressBar';
+import { ReaderHeader } from '../../src/components/reader/ReaderHeader';
+import { COLORS } from '../../src/constants/theme';
+import { useLocalPdfFile } from '../../src/hooks/useLocalPdfFile';
+import { useReaderMessages } from '../../src/hooks/useReaderMessages';
 
 function isLocalUri(uri: string): boolean {
   return uri.startsWith('file://') || uri.startsWith('content://');
@@ -26,9 +24,8 @@ export default function ReaderScreen() {
   }>();
   const router = useRouter();
 
-  const story = SAMPLE_STORIES.find((s) => s.id === id);
-  const pdfUrl = (uri as string | undefined) || story?.remoteUrl || '';
-  const bookTitle = (titleParam as string | undefined) || story?.title || 'Reading';
+  const pdfUrl = (uri as string | undefined) || '';
+  const bookTitle = (titleParam as string | undefined) || 'Reading';
 
   const local = isLocalUri(pdfUrl);
 
@@ -76,7 +73,7 @@ export default function ReaderScreen() {
           allowFileAccessFromFileURLs
           allowUniversalAccessFromFileURLs
           mixedContentMode="always"
-          onError={() => {}}
+          onError={() => { }}
         />
       )}
 
@@ -90,7 +87,7 @@ export default function ReaderScreen() {
           javaScriptEnabled
           domStorageEnabled
           mixedContentMode="always"
-          onError={() => {}}
+          onError={() => { }}
           startInLoadingState={true}
           renderLoading={() => <LoadingOverlay />}
         />
