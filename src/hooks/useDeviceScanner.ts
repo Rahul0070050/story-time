@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import { Platform, Alert } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { useCallback, useState } from 'react';
+import { Alert, Platform } from 'react-native';
 import { Story } from '../utils/pdfManager';
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -22,7 +22,7 @@ interface UseDeviceScannerResult {
 
 async function scanDirectory(RNFS: any, dirPath: string, depth = 0): Promise<Story[]> {
   const found: Story[] = [];
-  if (depth > 3 || !RNFS) return found; 
+  if (depth > 3 || !RNFS) return found;
 
   try {
     const files = await RNFS.readDir(dirPath);
@@ -40,7 +40,7 @@ async function scanDirectory(RNFS: any, dirPath: string, depth = 0): Promise<Sto
           isLocal: true,
         });
       } else if (file.isDirectory()) {
-          subDirPromises.push(scanDirectory(RNFS, file.path, depth + 1));
+        subDirPromises.push(scanDirectory(RNFS, file.path, depth + 1));
       }
     }
 
@@ -58,8 +58,8 @@ export function useDeviceScanner(): UseDeviceScannerResult {
   const scan = useCallback(
     async (requestPermission: () => Promise<boolean>): Promise<Story[]> => {
       if (!RNFS || !RNFS.DownloadDirectoryPath) {
-          console.warn('RNFS or its native properties are not available.');
-          return [];
+        console.warn('RNFS or its native properties are not available.');
+        return [];
       }
 
       if (Platform.OS !== 'android') {
@@ -76,17 +76,23 @@ export function useDeviceScanner(): UseDeviceScannerResult {
       setScanning(true);
       try {
         const scanPaths = [
-            RNFS.DownloadDirectoryPath,
-            RNFS.ExternalStorageDirectoryPath ? RNFS.ExternalStorageDirectoryPath + '/Documents' : null,
+          RNFS.DownloadDirectoryPath,
+          RNFS.ExternalStorageDirectoryPath ? RNFS.ExternalStorageDirectoryPath + '/Documents' : null,
+          RNFS.ExternalStorageDirectoryPath,
+          RNFS.DownloadDirectoryPath,
+          RNFS.ExternalStorageDirectoryPath + '/Books',
+          RNFS.ExternalStorageDirectoryPath + '/DCIM',
+          RNFS.ExternalStorageDirectoryPath + '/Pictures',
+          RNFS.ExternalStorageDirectoryPath + '/Music',
         ].filter(Boolean);
 
         const results = await Promise.all(
-            scanPaths.map(p => scanDirectory(RNFS, p!))
+          scanPaths.map(p => scanDirectory(RNFS, p!))
         );
-        
+
         const allFound = results.flat();
-        const unique = allFound.filter((v, i, a) => 
-            a.findIndex(t => t.localUri === v.localUri) === i
+        const unique = allFound.filter((v, i, a) =>
+          a.findIndex(t => t.localUri === v.localUri) === i
         );
 
         return unique;

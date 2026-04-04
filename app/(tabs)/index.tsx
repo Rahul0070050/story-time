@@ -1,6 +1,7 @@
+// app/(tabs)/library.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
 import React from 'react';
-import { FlatList, StatusBar, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, StatusBar, StyleSheet, View } from 'react-native';
 
 import { BookCard } from '../../src/components/library/BookCard';
 import { EmptyLibrary } from '../../src/components/library/EmptyLibrary';
@@ -14,15 +15,13 @@ import { Story } from '../../src/utils/pdfManager';
 
 export default function LibraryScreen() {
   const router = useRouter();
-  const { status: permissionStatus, request: requestPermission } = useStoragePermission();
-  const { scanning: scanningOld, scan: scanOld, isAvailable } = useDeviceScanner();
+  const { status: permissionStatus, request: requestPermission, isAvailable } = useStoragePermission();
+  const { scanning: scanningOld, scan: scanOld, isAvailable: rnfsAvailable } = useDeviceScanner();
   const { discovering, discover, hasFolderAccess, refresh: refreshSAF } = useSAFDiscovery();
   const { localBooks, addBooks, removeBook, refresh: refreshLibrary } = useLocalLibrary();
 
-  const allBooks = [...localBooks];
   const scanning = scanningOld || discovering;
 
-  // Sync library when screen is focused (e.g., returning from notifications)
   useFocusEffect(
     React.useCallback(() => {
       refreshSAF();
@@ -41,44 +40,69 @@ export default function LibraryScreen() {
     });
   };
 
+  /**
+   * Full scan strategy:
+   * 1. If SAF folder is linked → silent rescan (fast, modern Android)
+   * 2. If forcePrompt → ask user to pick their root storage folder via SAF
+   * 3. Fallback → RNFS scan of common directories (old Android / bare workflow)
+   */
   const handleScan = React.useCallback(async (forcePrompt = false) => {
-    // Try SAF first (Modern Android)
-    const found = await discover(forcePrompt);
-    if (found.length > 0) {
-      addBooks(found);
-    } else if (!hasFolderAccess && !forcePrompt && isAvailable) {
-      // Falling back to standard scanner if no SAF folder linked and available
-      const standardFound = await scanOld(requestPermission);
-      addBooks(standardFound);
+    // Modern Android path (SAF)
+    if (hasFolderAccess || forcePrompt) {
+      const found = await discover(forcePrompt);
+      if (found.length > 0) {
+        addBooks(found);
+        return;
+      }
     }
-  }, [discover, scanOld, requestPermission, addBooks, hasFolderAccess, isAvailable]);
 
+    // First launch on modern Android: guide user to pick root storage
+    if (!hasFolderAccess && forcePrompt) {
+      Alert.alert(
+        'Select Your Storage Folder',
+        'To find all your PDFs, please select your device\'s root storage folder (usually "Internal Storage" or "SD Card").',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Choose Folder',
+            onPress: async () => {
+              const found = await discover(true); // forcePrompt = true → opens SAF picker
+              if (found.length > 0) addBooks(found);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Fallback: RNFS scan (older Android or no SAF support)
+    if (rnfsAvailable) {
+      const found = await scanOld(requestPermission);
+      if (found.length > 0) addBooks(found);
+    }
+  }, [discover, scanOld, requestPermission, addBooks, hasFolderAccess, rnfsAvailable]);
+
+  // Auto-scan on mount
   const hasScannedRef = React.useRef(false);
-
-  // Auto-scan on mount — fully automatic discovery
   React.useEffect(() => {
     if (hasScannedRef.current) return;
+    hasScannedRef.current = true;
 
-    const triggerInitialScan = async () => {
-      if (hasFolderAccess) {
-        // We already have a folder, just sync it
-        handleScan(false);
-        hasScannedRef.current = true;
-      } else if (permissionStatus === 'granted' && isAvailable) {
-        // Permission already granted, just scan device
-        handleScan(false);
-        hasScannedRef.current = true;
-      }
-    };
-
-    triggerInitialScan();
-  }, [hasFolderAccess, permissionStatus, handleScan, isAvailable]);
+    if (hasFolderAccess) {
+      // Already linked a folder → silent rescan
+      handleScan(false);
+    } else if (permissionStatus === 'granted' && rnfsAvailable) {
+      // Old Android with permission → RNFS scan
+      handleScan(false);
+    }
+    // Otherwise wait for user to tap the scan button (forcePrompt = true)
+  }, [hasFolderAccess, permissionStatus, handleScan, rnfsAvailable]);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
       <FlatList
-        data={allBooks}
+        data={localBooks}
         style={{ backgroundColor: COLORS.bg }}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
@@ -90,14 +114,14 @@ export default function LibraryScreen() {
           />
         )}
         ListHeaderComponent={
-      <HeroSection
-        bookCount={allBooks.length}
-        scanning={scanning}
-        permissionStatus={permissionStatus}
-        hasFolderAccess={hasFolderAccess}
-        onScan={handleScan}
-        isAvailable={isAvailable}
-      />
+          <HeroSection
+            bookCount={localBooks.length}
+            scanning={scanning}
+            permissionStatus={permissionStatus}
+            hasFolderAccess={hasFolderAccess}
+            onScan={handleScan}   // pass forcePrompt=true when user taps button
+            isAvailable={rnfsAvailable}
+          />
         }
         ListEmptyComponent={<EmptyLibrary />}
         showsVerticalScrollIndicator={false}
