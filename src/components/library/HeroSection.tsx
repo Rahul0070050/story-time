@@ -4,9 +4,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { RotateCw } from 'lucide-react-native';
 import React from 'react';
 import {
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -24,12 +26,12 @@ interface HeroSectionProps {
   isAvailable?: boolean;
 }
 
-function NotificationIcon({ 
-  hasFolderAccess, 
+function NotificationIcon({
+  hasFolderAccess,
   permissionStatus,
   isAvailable
-}: { 
-  hasFolderAccess: boolean; 
+}: {
+  hasFolderAccess: boolean;
   permissionStatus: PermissionStatus;
   isAvailable: boolean;
 }) {
@@ -38,8 +40,8 @@ function NotificationIcon({
   const showDot = !hasFolderAccess || (isAvailable && Platform.OS === 'android' && permissionStatus !== 'granted');
 
   return (
-    <TouchableOpacity 
-      style={styles.notificationBtn} 
+    <TouchableOpacity
+      style={styles.notificationBtn}
       onPress={() => router.push('/notifications')}
     >
       <Ionicons name="notifications-outline" size={24} color="#fff" />
@@ -61,9 +63,9 @@ export const HeroSection = React.memo(({
       <LinearGradient colors={GRADIENTS.hero} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
         <View style={styles.topRow}>
           <Text style={styles.title}>StoryTime</Text>
-          <NotificationIcon 
-            hasFolderAccess={hasFolderAccess} 
-            permissionStatus={permissionStatus} 
+          <NotificationIcon
+            hasFolderAccess={hasFolderAccess}
+            permissionStatus={permissionStatus}
             isAvailable={isAvailable}
           />
         </View>
@@ -74,6 +76,9 @@ export const HeroSection = React.memo(({
         <View style={styles.countBadge}>
           <Text style={styles.countText}>{bookCount}</Text>
         </View>
+        <Pressable style={styles.scanBtn} onPress={() => onScan(true)}>
+          <RotateCw />
+        </Pressable>
       </View>
     </View>
   );
@@ -96,6 +101,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.1)',
     position: 'relative',
+  },
+  scanBtn: {
+    backgroundColor: COLORS.primary,
+    padding: 8,
+    borderRadius: 12,
+  },
+  scanBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
   },
   notificationDot: {
     position: 'absolute',

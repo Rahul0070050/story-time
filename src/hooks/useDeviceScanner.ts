@@ -3,13 +3,14 @@ import { useCallback, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { Story } from '../utils/pdfManager';
 
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 const getRNFS = () => {
   if (isExpoGo) return null;
   try {
     return require('react-native-fs');
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -20,35 +21,58 @@ interface UseDeviceScannerResult {
   isAvailable: boolean;
 }
 
-async function scanDirectory(RNFS: any, dirPath: string, depth = 0): Promise<Story[]> {
+function makeStoryFromPath(filePath: string): Story {
+  const parts = filePath.split('/').filter(Boolean);
+  const fileName = parts[parts.length - 1] || 'Unknown.pdf';
+  const parentFolder = parts[parts.length - 2] || 'Device';
+
+  return {
+    id: `scan-${filePath}`,
+    title: fileName.replace(/\.pdf$/i, ''),
+    author: `Folder: ${parentFolder}`,
+    localUri: filePath,
+    isLocal: true,
+  };
+}
+
+async function scanDirectory(
+  RNFS: any,
+  dirPath: string,
+  depth = 0,
+  maxDepth = 4
+): Promise<Story[]> {
   const found: Story[] = [];
-  if (depth > 3 || !RNFS) return found;
+  if (!RNFS || !dirPath || depth > maxDepth) return found;
 
   try {
     const files = await RNFS.readDir(dirPath);
     const subDirPromises: Promise<Story[]>[] = [];
 
     for (const file of files) {
-      if (file.name.startsWith('.')) continue;
+      if (!file?.name || file.name.startsWith('.')) continue;
 
-      if (file.isFile() && file.name.toLowerCase().endsWith('.pdf')) {
-        found.push({
-          id: `scan-${file.path}`,
-          title: file.name.replace(/\.pdf$/i, ''),
-          author: 'Folder: ' + dirPath.split('/').slice(-2, -1)[0] || 'Device',
-          localUri: file.path,
-          isLocal: true,
-        });
-      } else if (file.isDirectory()) {
-        subDirPromises.push(scanDirectory(RNFS, file.path, depth + 1));
+      if (file.isFile?.() && file.name.toLowerCase().endsWith('.pdf')) {
+        found.push(makeStoryFromPath(file.path));
+      } else if (file.isDirectory?.()) {
+        subDirPromises.push(scanDirectory(RNFS, file.path, depth + 1, maxDepth));
       }
     }
 
-    const subResults = await Promise.all(subDirPromises);
-    return [...found, ...subResults.flat()];
-  } catch (err) {
+    const nested = await Promise.all(subDirPromises);
+    return [...found, ...nested.flat()];
+  } catch {
     return found;
   }
+}
+
+function uniqueByUri(items: Story[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.localUri || item.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function useDeviceScanner(): UseDeviceScannerResult {
@@ -57,16 +81,31 @@ export function useDeviceScanner(): UseDeviceScannerResult {
 
   const scan = useCallback(
     async (requestPermission: () => Promise<boolean>): Promise<Story[]> => {
-      if (!RNFS || !RNFS.DownloadDirectoryPath) {
-        console.warn('RNFS or its native properties are not available.');
+      if (!RNFS || Platform.OS !== 'android') {
+        if (Platform.OS !== 'android') {
+          Alert.alert(
+            'Unsupported',
+            'Automatic device scanning is currently optimized for Android.'
+          );
+        }
         return [];
       }
 
-      if (Platform.OS !== 'android') {
-        Alert.alert(
-          'Download PDF Manually',
-          'Automatic device scanning is optimized for Android.'
-        );
+      const ext = RNFS.ExternalStorageDirectoryPath;
+      const download = RNFS.DownloadDirectoryPath;
+
+      const scanPaths = [
+        download,
+        ext,
+        ext ? `${ext}/Download` : null,
+        ext ? `${ext}/Documents` : null,
+        ext ? `${ext}/Books` : null,
+        ext ? `${ext}/PDF` : null,
+        ext ? `${ext}/PDFs` : null,
+      ].filter(Boolean) as string[];
+
+      if (!scanPaths.length) {
+        console.warn('No scan paths available from RNFS.');
         return [];
       }
 
@@ -75,29 +114,13 @@ export function useDeviceScanner(): UseDeviceScannerResult {
 
       setScanning(true);
       try {
-        const scanPaths = [
-          RNFS.DownloadDirectoryPath,
-          RNFS.ExternalStorageDirectoryPath ? RNFS.ExternalStorageDirectoryPath + '/Documents' : null,
-          RNFS.ExternalStorageDirectoryPath,
-          RNFS.DownloadDirectoryPath,
-          RNFS.ExternalStorageDirectoryPath + '/Books',
-          RNFS.ExternalStorageDirectoryPath + '/DCIM',
-          RNFS.ExternalStorageDirectoryPath + '/Pictures',
-          RNFS.ExternalStorageDirectoryPath + '/Music',
-        ].filter(Boolean);
-
         const results = await Promise.all(
-          scanPaths.map(p => scanDirectory(RNFS, p!))
+          scanPaths.map((path) => scanDirectory(RNFS, path))
         );
 
-        const allFound = results.flat();
-        const unique = allFound.filter((v, i, a) =>
-          a.findIndex(t => t.localUri === v.localUri) === i
-        );
-
-        return unique;
+        return uniqueByUri(results.flat());
       } catch (err) {
-        console.error('Scan Error:', err);
+        console.error('[useDeviceScanner] scan error:', err);
         return [];
       } finally {
         setScanning(false);
@@ -106,5 +129,9 @@ export function useDeviceScanner(): UseDeviceScannerResult {
     [RNFS]
   );
 
-  return { scanning, scan, isAvailable: !!(RNFS && RNFS.DownloadDirectoryPath) };
+  return {
+    scanning,
+    scan,
+    isAvailable: !!RNFS,
+  };
 }

@@ -2,13 +2,14 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useCallback, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 const getPermissionsModule = () => {
   if (isExpoGo) return null;
   try {
     return require('react-native-permissions');
-  } catch (e) {
+  } catch {
     return null;
   }
 };
@@ -24,7 +25,12 @@ interface UseStoragePermissionResult {
 export function useStoragePermission(): UseStoragePermissionResult {
   const [status, setStatus] = useState<PermissionStatus>('unknown');
   const permissionsModule = getPermissionsModule();
-  const isAvailable = !!(permissionsModule && permissionsModule.PERMISSIONS && permissionsModule.PERMISSIONS.ANDROID);
+
+  const isAvailable = !!(
+    permissionsModule &&
+    permissionsModule.PERMISSIONS &&
+    permissionsModule.PERMISSIONS.ANDROID
+  );
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'android') {
@@ -32,22 +38,29 @@ export function useStoragePermission(): UseStoragePermissionResult {
       return false;
     }
 
-    const { check, request, PERMISSIONS, RESULTS, openSettings } = permissionsModule || {};
+    // SAF is the main path for modern Android PDFs.
+    // Permission is only needed for RNFS fallback on older Android.
+    const sdkVersion = Number(Platform.Version);
+    if (sdkVersion >= 33) {
+      setStatus('unavailable');
+      return false;
+    }
+
+    const { check, request, PERMISSIONS, RESULTS, openSettings } =
+      permissionsModule || {};
 
     if (!isAvailable || !check || !request || !PERMISSIONS) {
       if (!isExpoGo) {
-        console.warn('react-native-permissions or its Android properties are not available.');
+        console.warn(
+          'react-native-permissions or Android permissions are not available.'
+        );
       }
       setStatus('unavailable');
       return false;
     }
 
     try {
-      const sdkVersion = Number(Platform.Version);
-      const androidPerms = PERMISSIONS.ANDROID;
-      const permission = sdkVersion >= 33 
-        ? androidPerms?.READ_MEDIA_IMAGES 
-        : androidPerms?.READ_EXTERNAL_STORAGE;
+      const permission = PERMISSIONS.ANDROID?.READ_EXTERNAL_STORAGE;
 
       if (!permission) {
         setStatus('unavailable');
@@ -55,7 +68,7 @@ export function useStoragePermission(): UseStoragePermissionResult {
       }
 
       const current = await check(permission);
-      
+
       if (current === RESULTS.GRANTED) {
         setStatus('granted');
         return true;
@@ -71,14 +84,14 @@ export function useStoragePermission(): UseStoragePermissionResult {
       if (result === RESULTS.BLOCKED) {
         Alert.alert(
           'Permission Required',
-          'Storage access was permanently denied. Enable it in Settings to discover local PDFs.',
+          'Storage access was permanently denied. Enable it in Settings to scan common folders.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Settings', onPress: () => openSettings() }
+            { text: 'Settings', onPress: () => openSettings?.() },
           ]
         );
       }
-      
+
       setStatus('denied');
       return false;
     } catch (err) {
@@ -86,7 +99,7 @@ export function useStoragePermission(): UseStoragePermissionResult {
       setStatus('denied');
       return false;
     }
-  }, []);
+  }, [isAvailable, permissionsModule]);
 
   return { status, request: requestPermission, isAvailable };
 }
